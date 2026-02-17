@@ -1,0 +1,42 @@
+services:
+  # 1. Le Honeypot (Notre script Python)
+  honeypot:
+    build: .
+    container_name: chameleon_honeypot
+    ports:
+      - "2222:2222" # Port d'écoute SSH
+    volumes:
+      - ./logs:/app/logs # Partage le dossier logs avec l'hôte
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    restart: always
+
+  # 2. Promtail (Lit les logs et les envoie à Loki)
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./logs:/app/logs # Lit le même dossier que le honeypot
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  # 3. Loki (Stocke les logs)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # 4. Grafana (Affiche le dashboard)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+    depends_on:
+      - loki
