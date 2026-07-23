@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import google.generativeai as genai
+import google.genai as genai
 import os
 
 # Charger la clé API depuis .env
@@ -13,21 +13,23 @@ if not api_key:
 print(f"[*] Clé API détectée: {api_key[:20]}...")
 
 try:
-    genai.configure(api_key=api_key)
-    print("[✓] Connexion API réussie!")
-    
+    client = genai.Client(api_key=api_key)
+    print("[OK] Client API initialisé!")
+
     # Lister les modèles disponibles
     print("\n[*] Modèles disponibles:")
-    for model in genai.list_models():
-        if 'generateContent' in model.supported_generation_methods:
+    for model in client.models.list():
+        if 'generateContent' in (model.supported_actions or []):
             print(f"  - {model.name}")
-    
-    # Tester avec le premier modèle
+
+    # Tester avec le modèle utilisé par le honeypot
     print("\n[*] Test d'une requête simple...")
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    response = model.generate_content("Dis bonjour")
-    print(f"[✓] Réponse: {response.text[:100]}")
-    
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents="Dis bonjour"
+    )
+    print(f"[OK] Réponse: {response.text[:100]}")
+
 except Exception as e:
     print(f"[!] ERREUR: {e}")
     print("\nVérifiez que:")

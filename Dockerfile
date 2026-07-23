@@ -2,9 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-#Installation des bibliothèques à jour sans caractères d'échappement inutiles
-
-RUN pip install --no-cache-dir paramiko google-genai
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY honeypot.py .
 
