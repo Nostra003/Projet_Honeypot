@@ -180,6 +180,24 @@ class ChameleonServer(paramiko.ServerInterface):
         self.event.set()
         return True
 
+# --- LECTURE DE COMMANDE ---
+def read_next_command(chan, buffer):
+    """Lit la prochaine commande complète (terminée par '\\r') envoyée sur le canal.
+    `buffer` contient les octets déjà reçus mais pas encore consommés : si le client
+    a tapé plusieurs commandes pendant qu'on traitait la précédente (ex: un appel IA
+    qui prend plusieurs secondes), elles restent en file au lieu d'être concaténées
+    en une seule commande illisible. Retourne (commande, disconnected, buffer_restant)."""
+    while "\r" not in buffer:
+        data = chan.recv(1024)
+        if not data:
+            return None, True, buffer
+        chan.send(data)
+        buffer += data.decode("utf-8", errors="ignore")
+        if len(buffer) > 4096:
+            return None, True, buffer
+    command, buffer = buffer.split("\r", 1)
+    return command, False, buffer
+
 # --- CONNECTION HANDLER ---
 def handle_connection(client, addr):
     client_ip = addr[0]
@@ -199,21 +217,11 @@ def handle_connection(client, addr):
         chan.send("Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 5.15.0-91-generic x86_64)\r\n\r\n")
         current_path = f"/home/{server.username or 'user'}"
         fs_state = new_fs_state()
+        input_buffer = ""
 
         while True:
             chan.send(f"{server.username}@ubuntu:{current_path}$ ")
-            command = ""
-            disconnected = False
-            while not command.endswith("\r"):
-                data = chan.recv(1024)
-                if not data:
-                    disconnected = True
-                    break
-                chan.send(data)
-                command += data.decode("utf-8", errors="ignore")
-                if len(command) > 4096:
-                    disconnected = True
-                    break
+            command, disconnected, input_buffer = read_next_command(chan, input_buffer)
 
             if disconnected: break
 
